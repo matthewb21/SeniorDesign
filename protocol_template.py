@@ -64,6 +64,9 @@ def run(protocol: protocol_api.ProtocolContext):
     # Pick up tip once for p1000 and keep it throughout, change to none eventually
     pipette_1000.pick_up_tip()
 
+    del tiprack_1000
+
+
     for i, well in enumerate(wells):
         
         #DMSO Transfer
