@@ -67,11 +67,22 @@ def run(protocol: protocol_api.ProtocolContext):
         "dispense": {"x": 0, "y": 0, "z": 2},
         "mix": {"x": 0, "y": 0, "z": 2},
     }
-    p1000_nmr_offset = {
-        "aspirate": {"x": 0, "y": 0, "z": 0},
-        "dispense": {"x": 0, "y": 0, "z": 0},
-        "mix": {"x": 0, "y": 0, "z": 0},
+    p1000_nmr_offsets = {
+        "mix": {"x": 3.9, "y": 54.4, "z": 34.2},
+        "aspirate": {"x": 3.9, "y": 54.4 , "z": 34.2},
+        "dispense": {"x": 3.9, "y": 54.4, "z": 34.2},
     }
+
+        # Offsets for pick_up_tip
+    pickup_tip_offset = {
+        "x": 3.9,
+        "y": 54.4,
+        "z": 34.2,
+    }
+
+    
+    z_needle_move = 15
+    NMR_Rack_Height = 103
 
     protocol.comment(f"Wells: {wells}")
     protocol.comment(f"Sample IDs: {sample_ids}")
@@ -125,21 +136,61 @@ def run(protocol: protocol_api.ProtocolContext):
             vol_epp -= transfer_vol
         pipette_20.drop_tip()
 
-    protocol.pause("Attach NMR Rack")
+    protocol.pause("Attach Needle System to p1000")
 
-    pipette_1000.pick_up_tip()
+    tip_well = tiprack_1000.wells()[0]
+    pickup_loc = tip_well.top().move(
+        types.Point(
+            x=pickup_tip_offset["x"],
+            y=pickup_tip_offset["y"],
+            z=pickup_tip_offset["z"],
+        )
+    )
+
+    pipette_1000.pick_up_tip(pickup_loc)
+
+    del tiprack_1000
     for i, well in enumerate(wells):
         #Moving to NMR rack
         source_well = mix_plate.wells_by_name()[well]
         dest_well = NMR_rack.wells_by_name()[well]
-        mix_loc = source_well.top().move(types.Point(x=p1000_nmr_offset["mix"]["x"], y=p1000_nmr_offset["mix"]["y"], z=p1000_nmr_offset["mix"]["z"]))
-        aspirate_loc = source_well.top().move(types.Point(x=p1000_nmr_offset["aspirate"]["x"], y=p1000_nmr_offset["aspirate"]["y"], z=p1000_nmr_offset["aspirate"]["z"]))
-        dispense_loc = dest_well.top().move(types.Point(x=p1000_nmr_offset["dispense"]["x"], y=p1000_nmr_offset["dispense"]["y"], z=p1000_nmr_offset["dispense"]["z"]))
-        pipette_1000.mix(3, 100, mix_loc)
-        pipette_1000.aspirate(100, aspirate_loc)
-        pipette_1000.dispense(100, dispense_loc)
+
+
+
+        aspirate_loc = source_well.center().move(
+            types.Point(
+                x=p1000_nmr_offsets["aspirate"]["x"],
+                y=p1000_nmr_offsets["aspirate"]["y"],
+                z=p1000_nmr_offsets["aspirate"]["z"],
+            )
+        )
+
+        dispense_loc = dest_well.center().move(
+            types.Point(
+                x=p1000_nmr_offsets["dispense"]["x"],
+                y=p1000_nmr_offsets["dispense"]["y"],
+                z=p1000_nmr_offsets["dispense"]["z"] - NMR_Rack_Height - z_needle_move,
+            )
+        )
+
+        needle_move = dest_well.center().move(
+            types.Point(
+                x=p1000_nmr_offsets["mix"]["x"],
+                y=p1000_nmr_offsets["mix"]["y"],
+                z=p1000_nmr_offsets["mix"]["z"] + z_needle_move,
+            )
+        )                                                           
+       
+        pipette_1000.flow_rate.aspirate -= 30   
+        pipette_1000.flow_rate.dispense -= 30
+        pipette_1000.aspirate(500, aspirate_loc)
+        pipette_1000.move_to(needle_move)
+        pipette_1000.dispense(500, dispense_loc)
+        pipette_1000.blow_out(dispense_loc)
 
     # Drop p1000 tip after all transfers complete
     pipette_1000.drop_tip()
 
+ 
+    
 
