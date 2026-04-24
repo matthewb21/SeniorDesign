@@ -58,6 +58,7 @@ def run(protocol: protocol_api.ProtocolContext):
     location_protein = {{LOCATION_PROTEIN}}
     vol_protein = {{VOL_PROTEIN}}
     vol_aqueous = {{VOL_AQUEOUS}}
+    vol_to_tube = {{VOL_TO_TUBE}}
 
 
     p20_offset = {
@@ -200,9 +201,10 @@ def run(protocol: protocol_api.ProtocolContext):
        
         pipette_1000.flow_rate.aspirate -= 30   
         pipette_1000.flow_rate.dispense -= 30
-        pipette_1000.aspirate(500, aspirate_loc)
+        transfer_to_tube_ul = float(vol_to_tube[i])
+        pipette_1000.aspirate(transfer_to_tube_ul, aspirate_loc)
         pipette_1000.move_to(needle_move)
-        pipette_1000.dispense(500, dispense_loc)
+        pipette_1000.dispense(transfer_to_tube_ul, dispense_loc)
         pipette_1000.blow_out(dispense_loc)
         pipette_1000.flow_rate.aspirate += 30   
         pipette_1000.flow_rate.dispense += 30
