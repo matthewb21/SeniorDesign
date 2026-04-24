@@ -5,6 +5,7 @@ metadata = {
     "apiLevel": "2.15"
 }
 
+protein_labware = "{{LABWARE_PROTEIN_SOLUTION}}"
 
 def run(protocol: protocol_api.ProtocolContext):
 
@@ -33,8 +34,8 @@ def run(protocol: protocol_api.ProtocolContext):
         "nest_96_wellplate_2ml_deep", "8"
     )
 
-    eppendorf_plate = protocol.load_labware(
-        "opentrons_24_tuberack_eppendorf_1.5ml_safelock_snapcap", "9"
+    protein_plate = protocol.load_labware(
+        "{{LABWARE_PROTEIN_SOLUTION}}", "9"
     )
 
     pipette_20 = protocol.load_instrument(
@@ -54,9 +55,10 @@ def run(protocol: protocol_api.ProtocolContext):
     sample_ids = {{SAMPLE_IDS}}
     location_384 = {{LOCATION_384}}
     vol_384 = {{VOL_384}}
-    location_eppendorf = {{LOCATION_EPPENDORF}}
-    vol_eppendorf = {{VOL_EPPENDORF}}
+    location_protein = {{LOCATION_PROTEIN}}
+    vol_protein = {{VOL_PROTEIN}}
     vol_aqueous = {{VOL_AQUEOUS}}
+
 
     p20_offset = {
         "aspirate": {"x": 0, "y": 0, "z": 5},
@@ -72,6 +74,8 @@ def run(protocol: protocol_api.ProtocolContext):
         "aspirate": {"x": 3.9, "y": 54.4 , "z": 34.2},
         "dispense": {"x": 3.9, "y": 54.4, "z": 34.2},
     }
+    
+    
 
         # Offsets for pick_up_tip
     pickup_tip_offset = {
@@ -88,11 +92,9 @@ def run(protocol: protocol_api.ProtocolContext):
     protocol.comment(f"Sample IDs: {sample_ids}")
     protocol.comment(f"Combined data: {combined_data}")
 
-    
+   
 
-    
-
-
+ #Prep steps
     for i, well in enumerate(wells):
         
         #DMSO Transfer
@@ -122,10 +124,10 @@ def run(protocol: protocol_api.ProtocolContext):
         
         #Eppendorf Transfer
         pipette_20.pick_up_tip()
-        vol_epp = float(vol_eppendorf[i])
+        vol_prot = float(vol_prot[i])
         while vol_epp > 0:
             transfer_vol = min(vol_epp, 20)
-            source_well = eppendorf_plate[location_eppendorf[i]]
+            source_well = protein_plate[location_protein[i]]
             dest_well = mix_plate.wells_by_name()[well]
             aspirate_loc = source_well.bottom().move(types.Point(x=p20_offset["aspirate"]["x"], y=p20_offset["aspirate"]["y"], z=p20_offset["aspirate"]["z"]))
             dispense_loc = dest_well.bottom().move(types.Point(x=p20_offset["dispense"]["x"], y=p20_offset["dispense"]["y"], z=p20_offset["dispense"]["z"]))
@@ -136,7 +138,6 @@ def run(protocol: protocol_api.ProtocolContext):
             vol_epp -= transfer_vol
         pipette_20.drop_tip()
 
-    protocol.pause("Attach Needle System to p1000")
 
     tip_well = tiprack_1000.wells()[0]
     pickup_loc = tip_well.top().move(
@@ -147,8 +148,23 @@ def run(protocol: protocol_api.ProtocolContext):
         )
     )
 
+    #Move sample to tube 
     pipette_1000.pick_up_tip(pickup_loc)
+        
+    protocol.pause("Attach Needle System to p1000. Remove prep labware, have Bruker rack on 8, mix plate on 5, and wash labware on 3")
+    del protein_plate
+    del DMSO_plate
+    del aqueous_reservoir
+    del tiprack_20
+  
 
+
+    Cleaning_Plate = protocol.load_labware("opentrons_6_tuberack_nest_50ml_conical", "3")
+
+    Water_Tube = Cleaning_Plate.wells()[0]
+    Acid_Tube = Cleaning_Plate.wells()[1]
+    Neutralize_Tube = Cleaning_Plate.wells()[2]
+    WaterRinse_Tube = Cleaning_Plate.wells()[3]
     del tiprack_1000
     for i, well in enumerate(wells):
         #Moving to NMR rack
@@ -181,16 +197,56 @@ def run(protocol: protocol_api.ProtocolContext):
             )
         )                                                           
        
+       
         pipette_1000.flow_rate.aspirate -= 30   
         pipette_1000.flow_rate.dispense -= 30
         pipette_1000.aspirate(500, aspirate_loc)
         pipette_1000.move_to(needle_move)
         pipette_1000.dispense(500, dispense_loc)
         pipette_1000.blow_out(dispense_loc)
+        pipette_1000.flow_rate.aspirate += 30   
+        pipette_1000.flow_rate.dispense += 30
+ 
+ ###Wash Steps and Data
+        water_mix_loc = Water_Tube.center().move(
+            types.Point(
+                x=p1000_nmr_offsets["mix"]["x"],
+                y=p1000_nmr_offsets["mix"]["y"],
+                z=p1000_nmr_offsets["mix"]["z"],
+            )
+        )
+        acid_mix_loc = Acid_Tube.center().move(
+            types.Point(
+                x=p1000_nmr_offsets["mix"]["x"],
+                y=p1000_nmr_offsets["mix"]["y"],
+                z=p1000_nmr_offsets["mix"]["z"],
+            )
+        )
+        neutralize_mix_loc = Neutralize_Tube.center().move(
+            types.Point(
+                x=p1000_nmr_offsets["mix"]["x"],
+                y=p1000_nmr_offsets["mix"]["y"],
+                z=p1000_nmr_offsets["mix"]["z"],
+            )
+        )
+        water_rinse_mix_loc = WaterRinse_Tube.center().move(
+            types.Point(
+                x=p1000_nmr_offsets["mix"]["x"],
+                y=p1000_nmr_offsets["mix"]["y"],
+                z=p1000_nmr_offsets["mix"]["z"],
+            )
+        )
+       
+        
 
-    # Drop p1000 tip after all transfers complete
+        pipette_1000.mix(3, 500, water_mix_loc)
+        pipette_1000.mix(3, 500, acid_mix_loc)
+        pipette_1000.mix(3, 500, neutralize_mix_loc)
+        pipette_1000.mix(3, 500, water_rinse_mix_loc)
+
+  
+     
     pipette_1000.drop_tip()
 
- 
     
-
+33
